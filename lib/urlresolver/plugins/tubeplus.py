@@ -17,40 +17,33 @@
 """
 
 import re
-from t0mm0.common.net import Net
-import urllib2
+
 import urlresolver
-from urlresolver import common
+from urlresolver.net import http_get
+
 from urlresolver.plugnplay.interfaces import UrlResolver
 from urlresolver.plugnplay.interfaces import PluginSettings
 from urlresolver.plugnplay import Plugin
 
+
 class TubeplusResolver(Plugin, UrlResolver, PluginSettings):
     implements = [UrlResolver]
     name = "tubeplus.me"
-    
-    def __init__(self):
-        self.net = Net()
 
     def get_media_url(self, host, media_id):
         web_url = self.get_url(host, media_id)
         #get list
-        try:
-            html = self.net.http_GET(web_url).content
-        except urllib2.URLError, e:
-            common.addon.log_error('tubeplus: got http error %d fetching %s' %
-                                    (e.code, web_url))
-            return False
-            
+        html = http_get(web_url)
+
         r = '"none" href="(.+?)"'
         sources = []
         regex = re.finditer(r, html, re.DOTALL)
 
         for s in regex:
-            sources.append(urlresolver.HostedMediaFile(url=s.group(1))) 
-        
+            sources.append(urlresolver.HostedMediaFile(url=s.group(1)))
+
         source = urlresolver.choose_source(sources)
-        
+
         if source:
             stream_url = source.resolve()
         else:
@@ -60,8 +53,8 @@ class TubeplusResolver(Plugin, UrlResolver, PluginSettings):
 
     def get_url(self, host, media_id):
         return 'http://tubeplus.me/player/%s/' % media_id
-        
-        
+
+
     def get_host_and_id(self, url):
         r = re.search('//(.+?)/player/(\d+)', url)
         if r:
@@ -75,6 +68,6 @@ class TubeplusResolver(Plugin, UrlResolver, PluginSettings):
 
     def valid_url(self, url, host):
         if self.get_setting('enabled') == 'false': return False
-        return re.match('http://(www.)?tubeplus.me/player/\d+', 
+        return re.match('http://(www.)?tubeplus.me/player/\d+',
                         url) or 'tubeplus' in host
 

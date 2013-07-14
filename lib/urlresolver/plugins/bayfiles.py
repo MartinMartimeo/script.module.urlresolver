@@ -1,4 +1,4 @@
-'''
+"""
 Bayfiles urlresolver plugin
 Copyright (C) 2013 voinage
 
@@ -14,15 +14,16 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
-'''
+"""
+from urlresolver.net import http_get, http_post
 
-from t0mm0.common.net import Net
 from urlresolver.plugnplay.interfaces import UrlResolver
 from urlresolver.plugnplay.interfaces import PluginSettings
 from urlresolver.plugnplay import Plugin
-import re,urllib2,os,json,time,sys
-from urlresolver import common
+import re, urllib2, os, json, time, sys
+
 from time import time as wait
+
 
 class bayfilesResolver(Plugin, UrlResolver, PluginSettings):
     implements = [UrlResolver, PluginSettings]
@@ -31,24 +32,25 @@ class bayfilesResolver(Plugin, UrlResolver, PluginSettings):
     def __init__(self):
         p = self.get_setting('priority') or 100
         self.priority = int(p)
-        self.net = Net()
-                                
+
     def get_media_url(self, host, media_id):
         web_url = self.get_url(host, media_id)
-        html=self.net.http_GET(web_url).content
+        html = http_get(web_url)
         found = re.search(r'var vfid = (\d+);\s*var delay = (\d+);', html)
         vfid, delay = found.groups()
-        response = json.loads(self.net.http_POST('http://bayfiles.com/ajax_download',{"_": wait() * 1000,"action": "startTimer","vfid": vfid}).content)
-        common.addon.show_countdown(int(delay),'[B][COLOR orange]BAYFILES[/COLOR][/B]','')
-        html = self.net.http_POST('http://bayfiles.com/ajax_download',{"token": response['token'],"action": "getLink","vfid": vfid}).content
+        response = json.loads(
+            http_post('http://bayfiles.com/ajax_download', {"_": wait() * 1000, "action": "startTimer", "vfid": vfid}))
+        common.addon.show_countdown(int(delay), '[B][COLOR orange]BAYFILES[/COLOR][/B]', '')
+        html = http_post('http://bayfiles.com/ajax_download',
+                         {"token": response['token'], "action": "getLink", "vfid": vfid})
         final_link = re.search(r"javascript:window.location.href = '([^']+)';", html)
         return final_link.group(1)
-       
+
     def get_url(self, host, media_id):
-        return 'http://%s.com/file/uMXL/%s'%(host,media_id)
-        
+        return 'http://%s.com/file/uMXL/%s' % (host, media_id)
+
     def get_host_and_id(self, url):
-        r = re.match(r'http://(bayfiles).com/file/uMXL/([a-zA-Z0-9._/]+)',url)
+        r = re.match(r'http://(bayfiles).com/file/uMXL/([a-zA-Z0-9._/]+)', url)
         if r:
             return r.groups()
         else:

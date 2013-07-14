@@ -1,4 +1,4 @@
-'''
+"""
 divxstage urlresolver plugin
 Copyright (C) 2011 t0mm0, DragonWin
 
@@ -14,17 +14,13 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
-'''
+"""
+from urlresolver.net import http_get
 
-from t0mm0.common.net import Net
 from urlresolver.plugnplay.interfaces import UrlResolver
 from urlresolver.plugnplay.interfaces import PluginSettings
 from urlresolver.plugnplay import Plugin
 import re, urllib2, os
-from urlresolver import common
-
-#SET ERROR_LOGO# THANKS TO VOINAGE, BSTRDMKR, ELDORADO
-error_logo = os.path.join(common.addon_path, 'resources', 'images', 'redx.png')
 
 
 class DivxstageResolver(Plugin, UrlResolver, PluginSettings):
@@ -34,59 +30,43 @@ class DivxstageResolver(Plugin, UrlResolver, PluginSettings):
     def __init__(self):
         p = self.get_setting('priority') or 100
         self.priority = int(p)
-        self.net = Net()
 
 
     def get_media_url(self, host, media_id):
         web_url = self.get_url(host, media_id)
-        try:
-            html = self.net.http_GET(web_url).content
-            r = re.search('<param name="src" value="(.+?)"', html)
+        html = http_get(web_url)
+        r = re.search('<param name="src" value="(.+?)"', html)
+        if r:
+            stream_url = r.group(1)
+        else:
+            r = re.search('flashvars.filekey="(.+)"', html)
             if r:
-                stream_url = r.group(1)
-            else:
-                r = re.search('flashvars.filekey="(.+)"', html)
+                file_key = r.group(1)
+                player_url = 'http://' + host + '/api/player.api.php?user=undefined&key=' + file_key + '&pass=undefined&codes=1&file=' + media_id
+                html = http_get(player_url)
+                r = re.search('url=(.+?)&', html)
                 if r:
-                    file_key = r.group(1)
-                    player_url = 'http://'+host+'/api/player.api.php?user=undefined&key='+file_key+'&pass=undefined&codes=1&file='+media_id
-                    html = self.net.http_GET(player_url).content
-                    r = re.search('url=(.+?)&', html)
-                    if r:
-                        stream_url = r.group(1)
-                    else:
-                        raise Exception ('File Not Found or removed')
+                    stream_url = r.group(1)
                 else:
-                    raise Exception ('File Not Found or removed')
-            return stream_url
-        except urllib2.URLError, e:
-            common.addon.log_error(self.name + ': got http error %d fetching %s' %
-                                   (e.code, web_url))
-            common.addon.show_small_popup('Error','Http error: '+str(e), 5000, error_logo)
-            return False
-        except Exception, e:
-            common.addon.log_error('**** Divxstage Error occured: %s' % e)
-            common.addon.show_small_popup(title='[B][COLOR white]DIVXSTAGE[/COLOR][/B]', msg='[COLOR red]%s[/COLOR]' % e, delay=5000, image=error_logo)
-            return False
+                    raise Exception('File Not Found or removed')
+            else:
+                raise Exception('File Not Found or removed')
+        return stream_url
 
 
     def get_url(self, host, media_id):
         print 'http://www.divxstage.eu/video/%s' % media_id
         return 'http://www.divxstage.eu/video/%s' % media_id
-        
-        
-        
-        
+
     def get_host_and_id(self, url):
         r = re.search('//(.+?)/(?:video/([0-9a-z]+)|embed.php\?v=([0-9a-z]+)&width)', url)
         if r and 'embed' in r.group(1):
-            return r.group(1),r.group(3)
+            return r.group(1), r.group(3)
         else:
-            return r.group(1),r.group(2)
-        if not r:
-            return False
+            return r.group(1), r.group(2)
 
 
     def valid_url(self, url, host):
         if self.get_setting('enabled') == 'false': return False
         #http://embed.divxstage.eu/embed.php?v=8da26363e05fd&width=746&height=388&c=000
-        return re.match('http://(?:www.|embed.)?divxstage.(?:eu|net)/' or 'divxstage' in host,url)
+        return re.match('http://(?:www.|embed.)?divxstage.(?:eu|net)/' or 'divxstage' in host, url)

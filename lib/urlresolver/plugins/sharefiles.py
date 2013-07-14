@@ -16,17 +16,15 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
-from t0mm0.common.net import Net
 from urlresolver.plugnplay.interfaces import UrlResolver
 from urlresolver.plugnplay.interfaces import PluginSettings
 from urlresolver.plugnplay import Plugin
 import urllib2
-from urlresolver import common
+
 from lib import jsunpack
 
 # Custom imports
 import re
-
 
 
 class SharefilesResolver(Plugin, UrlResolver, PluginSettings):
@@ -36,17 +34,17 @@ class SharefilesResolver(Plugin, UrlResolver, PluginSettings):
     def __init__(self):
         p = self.get_setting('priority') or 100
         self.priority = int(p)
-        self.net = Net()
+
         self.pattern = 'http://((?:www.)?sharefiles4u.com)/([0-9a-zA-Z]+)'
 
     def get_media_url(self, host, media_id):
         web_url = self.get_url(host, media_id)
 
         try:
-            html = self.net.http_GET(web_url).content
+            html = http_get(web_url)
         except urllib2.URLError, e:
             common.addon.log_error(self.name + ': got http error %d fetching %s' %
-                                    (e.code, web_url))
+                                   (e.code, web_url))
             return False
 
         #send all form values except premium
@@ -56,8 +54,8 @@ class SharefilesResolver(Plugin, UrlResolver, PluginSettings):
         if r:
             for match in r:
                 name = match[0]
-                if 'premium' in name : continue
-                value = match[1].replace('"','')
+                if 'premium' in name: continue
+                value = match[1].replace('"', '')
                 data[name] = value
             html = self.net.http_POST(web_url, data).content
         else:
@@ -76,12 +74,11 @@ class SharefilesResolver(Plugin, UrlResolver, PluginSettings):
             if r:
                 return r.group(1)
 
-
         return False
 
 
     def get_url(self, host, media_id):
-            return 'http://www.sharefiles4u.com/%s' % (media_id)
+        return 'http://www.sharefiles4u.com/%s' % (media_id)
 
     def get_host_and_id(self, url):
         r = re.search(self.pattern, url)

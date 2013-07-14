@@ -15,16 +15,13 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
+from urlresolver.net import http_get, http_post
 
-from t0mm0.common.net import Net
 from urlresolver.plugnplay.interfaces import UrlResolver
 from urlresolver.plugnplay.interfaces import PluginSettings
 from urlresolver.plugnplay import Plugin
 import urllib2, re, os
-from urlresolver import common
 
-#SET ERROR_LOGO# THANKS TO VOINAGE, BSTRDMKR, ELDORADO
-error_logo = os.path.join(common.addon_path, 'resources', 'images', 'redx.png')
 
 class GorillavidResolver(Plugin, UrlResolver, PluginSettings):
     implements = [UrlResolver, PluginSettings]
@@ -33,7 +30,7 @@ class GorillavidResolver(Plugin, UrlResolver, PluginSettings):
     def __init__(self):
         p = self.get_setting('priority') or 100
         self.priority = int(p)
-        self.net = Net()
+
         #e.g. http://gorillavid.com/vb80o1esx2eb
         self.pattern = 'http://((?:www.)?gorillavid.in)/([0-9a-zA-Z]+)'
 
@@ -41,35 +38,21 @@ class GorillavidResolver(Plugin, UrlResolver, PluginSettings):
     def get_media_url(self, host, media_id):
         web_url = self.get_url(host, media_id)
         """ Human Verification """
-        try:
-            resp = self.net.http_GET(web_url)
-            html = resp.content
-            r = re.findall(r"<title>404 - Not Found</title>",html)
-            if r:
-                raise Exception ('File Not Found or removed')
-            post_url = resp.get_url()
-            form_values = {}
-            for i in re.finditer('<input type="hidden" name="(.+?)" value="(.+?)">', html):
-                form_values[i.group(1)] = i.group(2)
-                
-            html = self.net.http_POST(post_url, form_data=form_values).content
-            r = re.search('file: "(.+?)"', html)
-            if r:
-                return r.group(1)
+        html = http_get(web_url)
+        r = re.findall(r"<title>404 - Not Found</title>", html)
+        if r:
+            raise Exception('File Not Found or removed')
+        form_values = {}
+        for i in re.finditer('<input type="hidden" name="(.+?)" value="(.+?)">', html):
+            form_values[i.group(1)] = i.group(2)
 
-            raise Exception ('File Not Found or removed')
-        except urllib2.URLError, e:
-            common.addon.log_error('gorillavid: got http error %d fetching %s' %
-                                  (e.code, web_url))
-            common.addon.show_small_popup('Error','Http error: '+str(e), 5000, error_logo)
-            return False
-        
-        except Exception, e:
-            common.addon.log_error('**** Gorillavid Error occured: %s' % e)
-            common.addon.show_small_popup(title='[B][COLOR white]GORILLAVID[/COLOR][/B]', msg='[COLOR red]%s[/COLOR]' % e, delay=5000, image=error_logo)
-            return False
-        
-        
+        html = http_post(web_url, data=form_values)
+        r = re.search('file: "(.+?)"', html)
+        if r:
+            return r.group(1)
+
+        raise Exception('File Not Found or removed')
+
 
     def get_url(self, host, media_id):
         return 'http://gorillavid.in/%s' % (media_id)

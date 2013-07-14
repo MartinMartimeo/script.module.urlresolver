@@ -1,3 +1,5 @@
+#!/usr/bin/python2.7
+# -*- coding: utf-8 -*-
 #    urlresolver XBMC Addon
 #    Copyright (C) 2011 t0mm0
 #
@@ -14,7 +16,7 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-'''
+"""
 This module defines several interfaces that you can implement when writing 
 your URL resolving plugin.
 
@@ -32,50 +34,35 @@ should be defined as follows::
         class MyPluginResolver(Plugin, UrlResolver, SiteAuth, PluginSettings):
             implements = [UrlResolver, SiteAuth, PluginSettings]
 
-'''
+"""
+from abc import abstractmethod
 
-import urlresolver
-from urlresolver import common
+from urlresolver import get_setting
 from urlresolver.plugnplay import Interface
-import sys
-
-def _function_id(obj, nFramesUp):
-	'''Create a string naming the function n frames up on the stack.'''
-	fr = sys._getframe(nFramesUp+1)
-	co = fr.f_code
-	return "%s.%s" % (obj.__class__, co.co_name)
-
-
-def not_implemented(obj=None):
-	'''Use this instead of ``pass`` for the body of abstract methods.'''
-	raise Exception("Unimplemented abstract method: %s" % _function_id(obj, 1))
 
 
 class UrlResolver(Interface):
-    '''
+    """
     Your plugin needs to implement the abstract methods in this interface if
     it wants to be able to resolve URLs (which is probably all plugins!)
-    
-    .. note:: 
-    
-        You **MUST** override :meth:`get_media_url` and :meth:`valid_url` as 
+
+    .. note::
+
+        You **MUST** override :meth:`get_media_url` and :meth:`valid_url` as
         well as :attr:`name`.
-    
-    There are also a couple of utlity methods which you should probably not 
+
+    There are also a couple of utlity methods which you should probably not
     override.
-    '''
-    
+    """
+
+    # (str) A human readable name for your plugin.
     name = 'override_me'
-    '''(str) A human readable name for your plugin.'''
 
+    # (int) The order in which plugins will be tried. Lower numbers are tried first.
     priority = 100
-    '''
-    (int) The order in which plugins will be tried. Lower numbers are tried 
-    first.
-    '''    
 
-    class unresolvable():
-        '''
+    class unresolvable(object):
+        """
         An object returned to indicate that the url could not be resolved
         
         This object always evaluates to False to maintain compatibility with
@@ -94,7 +81,7 @@ class UrlResolver(Interface):
 
             msg (str): A string (likely shown to the user) with more
             detailed information about why the url could not be resolved
-        '''
+        """
 
         def __init__(self, code=0, msg='Unknown Error'):
             self.code = code
@@ -103,9 +90,9 @@ class UrlResolver(Interface):
         def __nonzero__(self):
             return 0
 
-
-    def get_media_url(self, web_url):
-        '''
+    @abstractmethod
+    def get_media_url(self, host, media_id):
+        """
         The part of your plugin that does the actual resolving. You must 
         implement this method.
         
@@ -121,26 +108,29 @@ class UrlResolver(Interface):
         removed) then return ``False`` instead.
         
         Args:
-            web_url (str): A URL to a web page associated with a piece of media
-            content.
+            host (str): Host of this piece of media
+            media_id (str): media_id of this piece of media
             
         Returns:
             If the ``web_url`` could be resolved, a string containing the direct 
             URL to the media file, if not, returns ``False``.    
-        '''
-        not_implemented(self)
-    
+        """
+        raise NotImplementedError("Unimplemented abstract method")
 
     def get_url(self, host, media_id):
-        not_implemented(self)
-        
+        """
+            Resolve host/media_id to url
+        """
+        raise NotImplementedError("Unimplemented abstract method")
 
     def get_host_and_id(self, url):
-        not_implemented(self)
+        """
+            Resolve url to host/media_id
+        """
+        raise NotImplementedError("Unimplemented abstract method")
 
-
-    def valid_url(self, web_url):
-        '''
+    def valid_url(self, host, media_id):
+        """
         Determine whether this plugin is capable of resolving this URL. You must 
         implement this method.
         
@@ -149,44 +139,49 @@ class UrlResolver(Interface):
         used by the file host your plugin can resolve URLs for. 
 
         Args:
-            web_url (str): A URL to a web page associated with a piece of media
-            content.
+            host (str): Host of this piece of media
+            media_id (str): media_id of this piece of media
             
         Returns:
             ``True`` if this plugin thinks it can resolve the ``web_url``, 
             otherwise ``False``.
-        '''
-        not_implemented(self)
-    
+        """
+        raise NotImplementedError("Unimplemented abstract method")
 
     def get_media_urls(self, web_urls):
-        '''
+        """
         .. warning::
-        
+
             Do not override this method!
-            
+
         Calls :meth:`get_media_url` on each URL in a list. May not be very
         useful!
-        
+
         Args:
             web_urls (str): A list of URLs to web pages associated with media
             content.
-            
+
         Returns:
-            A list of results - if the ``web_url`` could be resolved, a string 
-            containing the direct URL to the media file, if not, returns 
-            ``False``.    
-        '''
+            A list of results - if the ``web_url`` could be resolved, a string
+            containing the direct URL to the media file, if not, returns
+            ``False``.
+        """
         ret_val = []
         for web_url in web_urls:
-            url = self.get_media_url(web_url)
+            if isinstance(web_url, str):
+                url = self.get_media_url(*self.get_host_and_id(web_url))
+            elif isinstance(web_url, tuple):
+                url = self.get_media_url(*web_url)
+            elif isinstance(web_url, object):
+                url = self.get_media_url(web_url.get_host(), web_url.get_media_id())
+            else:
+                continue
             if url:
                 ret_val.append(url)
         return ret_val
-    
 
     def filter_urls(self, web_urls):
-        '''
+        """
         .. warning::
         
             Do not override this method!
@@ -201,45 +196,47 @@ class UrlResolver(Interface):
         Returns:
             A list of results - ``True`` if this plugin thinks it can resolve 
             the ``web_url``, otherwise ``False``.
-        '''
+        """
         ret_val = []
         for web_url in web_urls:
-            valid = self.valid_url()
+            if isinstance(web_url, str):
+                valid = self.get_media_url(*self.get_host_and_id(web_url))
+            elif isinstance(web_url, tuple):
+                valid = self.get_media_url(*web_url)
+            elif isinstance(web_url, object):
+                valid = self.get_media_url(web_url.get_host(), web_url.get_media_id())
+            else:
+                continue
             if valid:
                 ret_val.append(web_url)
         return
-        
-    
-    def isUniversal(self):
-    	'''
-    		You need to override this to return True, if you are implementing a univeral resolver 
-    		like real-debrid etc., which handles multiple hosts
-    	'''
-    	
-    	return False
 
+    def isUniversal(self):
+        """
+            You need to override this to return True, if you are implementing a univeral resolver
+            like real-debrid etc., which handles multiple hosts
+        """
+        return False
 
 
 class SiteAuth(Interface):
-    '''
-    Your plugin should implement this interface if the file hoster you are 
+    """
+    Your plugin should implement this interface if the file hoster you are
     resolving URLs for requires authentication. You may also implement it if
     the file hoster supports authentication but doesn't require it.
-    '''
-
+    """
 
     def login(self):
-        '''
-        This method should perform the login to the file host site. This will 
+        """
+        This method should perform the login to the file host site. This will
         normally involve posting credentials (stored in your plugin's settings)
-        to a web page which will set cookies. 
-        '''
-        not_implemented(self)
-
+        to a web page which will set cookies.
+        """
+        raise NotImplementedError("Unimplemented abstract method")
 
 
 class PluginSettings(Interface):
-    '''
+    """
     Your plugin needs to implement this interface if your plugin needs to store
     settings. 
     
@@ -263,10 +260,10 @@ class PluginSettings(Interface):
     If you want custom settings you mut override :meth:`get_settings_xml`.
     
     You should never override :meth:`get_setting`.
-    '''
-    
+    """
+
     def get_settings_xml(self):
-        '''
+        """
         This method should return XML which describes the settings you would 
         like for your plugin. You should make sure that the ``id`` starts
         with your plugins class name (which can be found using 
@@ -298,17 +295,17 @@ class PluginSettings(Interface):
         Returns:
             A string containing XML which would be valid in 
             ``resources/settings.xml``
-        '''
+        """
         xml = '<setting id="%s_priority" ' % self.__class__.__name__
         xml += 'type="number" label="Priority" default="100"/>\n'
 
         xml += '<setting id="%s_enabled" ' % self.__class__.__name__
         xml += 'type="bool" label="Enabled" default="true"/>\n'
-        return xml 
-        
-    
+        return xml
+
+
     def get_setting(self, key):
-        '''
+        """
         .. warning::
         
             Do not override this method!
@@ -331,7 +328,7 @@ class PluginSettings(Interface):
             
         Returns:
             A string containing the value stored for the requested setting.
-        '''
-        value = common.addon.get_setting('%s_%s' % 
-                                                (self.__class__.__name__, key))
+        """
+        value = get_setting('%s_%s' %
+                            (self.__class__.__name__, key))
         return value

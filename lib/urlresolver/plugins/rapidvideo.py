@@ -15,13 +15,12 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
+from urlresolver.net import http_get
 
-from t0mm0.common.net import Net
 from urlresolver.plugnplay.interfaces import UrlResolver
 from urlresolver.plugnplay.interfaces import PluginSettings
 from urlresolver.plugnplay import Plugin
 import urllib2
-from urlresolver import common
 
 # Custom imports
 import re
@@ -34,7 +33,6 @@ class RapidvideoResolver(Plugin, UrlResolver, PluginSettings):
     def __init__(self):
         p = self.get_setting('priority') or 100
         self.priority = int(p)
-        self.net = Net()
         #e.g. http://rapidvideo.com/view/hwksai28
         self.pattern = 'http://((?:www.)?rapidvideo.com)/view/([0-9a-zA-Z]+)'
 
@@ -42,12 +40,7 @@ class RapidvideoResolver(Plugin, UrlResolver, PluginSettings):
     def get_media_url(self, host, media_id):
         web_url = self.get_url(host, media_id)
 
-        try:
-            html = self.net.http_GET(web_url).content
-        except urllib2.URLError, e:
-            common.addon.log_error(self.name + ': got http error %d fetching %s' %
-                                    (e.code, web_url))
-            return False
+        html = http_get(web_url)
 
         # get stream url
         sPattern = "so.addVariable\(\s*'file'\s*,\s*'([^']+)'\s*\)"

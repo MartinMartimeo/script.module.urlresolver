@@ -15,17 +15,16 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
+from urlresolver import log_error
+from urlresolver.net import http_post, http_get
 
-from t0mm0.common.net import Net
 from urlresolver.plugnplay.interfaces import UrlResolver
 from urlresolver.plugnplay.interfaces import PluginSettings
 from urlresolver.plugnplay import Plugin
 import urllib2
-from urlresolver import common
 
 # Custom imports
 import re
-
 
 
 class EcostreamResolver(Plugin, UrlResolver, PluginSettings):
@@ -35,20 +34,13 @@ class EcostreamResolver(Plugin, UrlResolver, PluginSettings):
     def __init__(self):
         p = self.get_setting('priority') or 100
         self.priority = int(p)
-        self.net = Net()
         self.pattern = 'http://((?:www.)?ecostream.tv)/(?:stream|embed)?/([0-9a-zA-Z]+).html'
 
 
     def get_media_url(self, host, media_id):
         # emulate click on button "Start Stream" (ss=1)
         web_url = self.get_url(host, media_id) + "?ss=1"
-
-        try:
-            html = self.net.http_POST(web_url,{'ss':'1'}).content
-        except urllib2.URLError, e:
-            common.addon.log_error(self.name + ': got http error %d fetching %s' %
-                                    (e.code, web_url))
-            return False
+        html = http_post(web_url, {'ss': '1'})
 
         # get vars
         sPattern = "var t=setTimeout\(\"lc\('([^']+)','([^']+)','([^']+)','([^']+)'\)"
@@ -60,43 +52,32 @@ class EcostreamResolver(Plugin, UrlResolver, PluginSettings):
                 sT = str(aEntry[2])
                 sKey = str(aEntry[3])
                 # get name of php file
-                try:
-                    html = self.net.http_GET('http://www.ecostream.tv/assets/js/common.js').content
-                except urllib2.URLError, e:
-                    common.addon.log_error(self.name + ': got http error %d fetching %s' %
-                                    (e.code, web_url))
-                    return False
+                html = http_get('http://www.ecostream.tv/assets/js/common.js')
                 sPattern = "url: '([^=]+)="
                 r = re.search(sPattern, html)
-                if r is None :
-                    common.addon.log_error(self.name + ': name of php file not found')
+                if r is None:
+                    log_error(self.name + ': name of php file not found')
                     return False
-                # send vars and retrieve stream url
-                sNextUrl = r.group(1)+'='+sS+'&k='+sK+'&t='+sT+'&key='+sKey
-                postParams = ({'s':sS,'k':sK,'t':sT,'key':sKey})
-                postHeader = ({'Referer':'http://www.ecostream.tv', 'X-Requested-With':'XMLHttpRequest'})
-                try:
-                    html = self.net.http_POST(sNextUrl, postParams,headers = postHeader).content
-                except urllib2.URLError, e:
-                    common.addon.log_error(self.name + ': got http error %d fetching %s' %
-                                            (e.code, sNextUrl))
-                    return False
+                    # send vars and retrieve stream url
+                sNextUrl = r.group(1) + '=' + sS + '&k=' + sK + '&t=' + sT + '&key=' + sKey
+                postParams = ({'s': sS, 'k': sK, 't': sT, 'key': sKey})
+                postHeader = ({'Referer': 'http://www.ecostream.tv', 'X-Requested-With': 'XMLHttpRequest'})
+                html = http_post(sNextUrl, postParams, headers=postHeader)
 
                 sPattern = '<param name="flashvars" value="file=(.*?)&'
                 r = re.search(sPattern, html)
                 if r:
-                    sLinkToFile = 'http://www.ecostream.tv'+r.group(1)
+                    sLinkToFile = 'http://www.ecostream.tv' + r.group(1)
                     return sLinkToFile
-
 
         return False
 
 
     def get_url(self, host, media_id):
-            return 'http://www.ecostream.tv/stream/%s.html' % (media_id)
+        return 'http://www.ecostream.tv/stream/%s.html' % (media_id)
 
     def get_host_and_id(self, url):
-        r = re.search(self.pattern, url.replace('embed','stream'))
+        r = re.search(self.pattern, url.replace('embed', 'stream'))
         if r:
             return r.groups()
         else:

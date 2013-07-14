@@ -1,3 +1,5 @@
+#!/usr/bin/python2.7
+# -*- coding: utf-8 -*-
 """
     urlresolver XBMC Addon
     Copyright (C) 2011 t0mm0
@@ -17,14 +19,18 @@
 """
 
 import re
-from t0mm0.common.net import Net
-import urllib2
-from urlresolver import common
+from urlparse import parse_qs
+from urlresolver import log_error
+
 from urlresolver.plugnplay.interfaces import UrlResolver
 from urlresolver.plugnplay.interfaces import PluginSettings
 from urlresolver.plugnplay import Plugin
 
+
 class YoutubeResolver(Plugin, UrlResolver, PluginSettings):
+    """
+        Resolves youtube / youtu.be urls
+    """
     implements = [UrlResolver, PluginSettings]
     name = "youtube"
 
@@ -45,16 +51,18 @@ class YoutubeResolver(Plugin, UrlResolver, PluginSettings):
         
     def get_host_and_id(self, url):
         if url.find('?') > -1:
-            queries = common.addon.parse_query(url.split('?')[1])
+            queries = parse_qs(url.split('?')[1])
             video_id = queries.get('v', None)
         else:
             r = re.findall('/([0-9A-Za-z_\-]+)', url)
             if r:
                 video_id = r[-1]
+            else:
+                video_id = None
         if video_id:
-            return ('youtube.com', video_id)
+            return 'youtube.com', video_id
         else:
-            common.addon.log_error('youtube: video id not found')
+            log_error('youtube: video id not found')
             return False
         
         

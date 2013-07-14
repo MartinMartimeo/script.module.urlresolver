@@ -17,12 +17,13 @@
 """
 
 import re
-from t0mm0.common.net import Net
+
 import urllib2, os
-from urlresolver import common
+
 from urlresolver.plugnplay.interfaces import UrlResolver
 from urlresolver.plugnplay.interfaces import PluginSettings
 from urlresolver.plugnplay import Plugin
+
 
 class VeohResolver(Plugin, UrlResolver, PluginSettings):
     implements = [UrlResolver, PluginSettings]
@@ -31,32 +32,34 @@ class VeohResolver(Plugin, UrlResolver, PluginSettings):
     def __init__(self):
         p = self.get_setting('priority') or 100
         self.priority = int(p)
-        self.net = Net()
+
 
     def get_media_url(self, host, media_id):
-        html = self.net.http_GET("http://www.veoh.com/iphone/views/watch.php?id=" + media_id + "&__async=true&__source=waBrowse").content
+        html = self.net.http_GET(
+            "http://www.veoh.com/iphone/views/watch.php?id=" + media_id + "&__async=true&__source=waBrowse").content
         try:
             if not re.search('This video is not available on mobile', html):
                 r = re.compile("watchNow\('(.+?)'").findall(html)
                 if (len(r) > 0 ):
                     return r[0]
 
-            url = 'http://www.veoh.com/rest/video/'+media_id+'/details'
+            url = 'http://www.veoh.com/rest/video/' + media_id + '/details'
             html = self.net.http_GET(url).content
             file = re.compile('fullPreviewHashPath="(.+?)"').findall(html)
 
             if len(file) == 0:
-                raise Exception ('File Not Found or removed')
+                raise Exception('File Not Found or removed')
 
             return file[0]
         except urllib2.URLError, e:
             common.addon.log_error(self.name + ': got http error %d fetching %s' %
                                    (e.code, web_url))
-            common.addon.show_small_popup('Error','Http error: '+str(e), 8000, error_logo)
+            common.addon.show_small_popup('Error', 'Http error: ' + str(e), 8000, error_logo)
             return False
         except Exception, e:
             common.addon.log('**** Veoh Error occured: %s' % e)
-            common.addon.show_small_popup(title='[B][COLOR white]VEOH[/COLOR][/B]', msg='[COLOR red]%s[/COLOR]' % e, delay=5000, image=error_logo)
+            common.addon.show_small_popup(title='[B][COLOR white]VEOH[/COLOR][/B]', msg='[COLOR red]%s[/COLOR]' % e,
+                                          delay=5000, image=error_logo)
             return False
 
     def get_url(self, host, media_id):
@@ -71,7 +74,7 @@ class VeohResolver(Plugin, UrlResolver, PluginSettings):
             r = re.compile('veoh.com.+?permalinkId=(\w+)&*.*$').findall(url)
         elif re.search('watch/', url):
             r = re.compile('watch/(.+)').findall(url)
-            
+
         if r is not None and len(r) > 0:
             video_id = r[0]
         if video_id:
@@ -82,7 +85,8 @@ class VeohResolver(Plugin, UrlResolver, PluginSettings):
 
     def valid_url(self, url, host):
         if self.get_setting('enabled') == 'false': return False
-        return re.search('www.veoh.com/watch/.+',url) or re.search('www.veoh.com/.+?permalinkId=.+',url) or 'veoh' in host
+        return re.search('www.veoh.com/watch/.+', url) or re.search('www.veoh.com/.+?permalinkId=.+',
+                                                                    url) or 'veoh' in host
 
     def get_settings_xml(self):
         xml = PluginSettings.get_settings_xml(self)

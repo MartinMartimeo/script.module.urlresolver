@@ -1,4 +1,4 @@
-'''
+"""
 Stagevu urlresolver plugin
 Copyright (C) 2011 anilkuj
 
@@ -14,19 +14,16 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
-'''
+"""
+from urlresolver.net import http_get
 
-from t0mm0.common.net import Net
 from urlresolver.plugnplay.interfaces import UrlResolver
 from urlresolver.plugnplay.interfaces import PluginSettings
 from urlresolver.plugnplay import Plugin
 import re
 import urllib2
-from urlresolver import common
 import os
 
-#SET ERROR_LOGO# THANKS TO VOINAGE, BSTRDMKR, ELDORADO
-error_logo = os.path.join(common.addon_path, 'resources', 'images', 'redx.png')
 
 class StagevuResolver(Plugin, UrlResolver, PluginSettings):
     implements = [UrlResolver, PluginSettings]
@@ -36,33 +33,22 @@ class StagevuResolver(Plugin, UrlResolver, PluginSettings):
     def __init__(self):
         p = self.get_setting('priority') or 100
         self.priority = int(p)
-        self.net = Net()
 
 
     def get_media_url(self, host, media_id):
         web_url = self.get_url(host, media_id)
-        try:
-            link = self.net.http_GET(web_url).content
-            p=re.compile('<embed type="video/divx" src="(.+?)"')
-            match=p.findall(link)
-            if match:
-                return match[0]
-            else:
-                raise Exception ('File Not Found or removed')
-        except urllib2.URLError, e:
-            common.addon.log_error(self.name + ': got http error %d fetching %s' %
-                                   (e.code, web_url))
-            common.addon.show_small_popup('Error','Http error: '+str(e), 8000, error_logo)
-            return False
-        except Exception, e:
-            common.addon.log('**** Stagevu Error occured: %s' % e)
-            common.addon.show_small_popup(title='[B][COLOR white]STAGEVU[/COLOR][/B]', msg='[COLOR red]%s[/COLOR]' % e, delay=5000, image=error_logo)
-            return False 
+        link = http_get(web_url)
+        p = re.compile('<embed type="video/divx" src="(.+?)"')
+        match = p.findall(link)
+        if match:
+            return match[0]
+        else:
+            raise Exception('File Not Found or removed')
 
     def get_url(self, host, media_id):
-        return 'http://www.stagevu.com/video/%s' % media_id 
-        
-        
+        return 'http://www.stagevu.com/video/%s' % media_id
+
+
     def get_host_and_id(self, url):
         r = re.search('//(.+?)/video/([0-9a-zA-Z/]+)', url)
         if r:
@@ -75,4 +61,4 @@ class StagevuResolver(Plugin, UrlResolver, PluginSettings):
         if self.get_setting('enabled') == 'false': return False
         return (re.match('http://(www.)?stagevu.com/video/' +
                          '[0-9A-Za-z]+', url) or
-                         'stagevu' in host)
+                'stagevu' in host)

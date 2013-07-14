@@ -1,4 +1,4 @@
-'''
+"""
 Donevideo urlresolver plugin
 Copyright (C) 2013 Vinnydude
 
@@ -14,17 +14,16 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
-'''
+"""
+from urlresolver.net import http_get, http_post
 
-from t0mm0.common.net import Net
 from urlresolver.plugnplay.interfaces import UrlResolver
 from urlresolver.plugnplay.interfaces import PluginSettings
 from urlresolver.plugnplay import Plugin
-import re, xbmcgui
-from urlresolver import common
+import re
+
 from lib import jsunpack
 
-net = Net()
 
 class DonevideoResolver(Plugin, UrlResolver, PluginSettings):
     implements = [UrlResolver, PluginSettings]
@@ -34,81 +33,66 @@ class DonevideoResolver(Plugin, UrlResolver, PluginSettings):
     def __init__(self):
         p = self.get_setting('priority') or 100
         self.priority = int(p)
-        self.net = Net()
 
 
     def get_media_url(self, host, media_id):
-        try:
-            url = self.get_url(host, media_id)
-            html = self.net.http_GET(url).content
-            dialog = xbmcgui.DialogProgress()
-            dialog.create('Resolving', 'Resolving Donevideo Link...')       
-            dialog.update(0)
+        url = self.get_url(host, media_id)
+        html = http_get(url)
 
-            data = {}
-            r = re.findall(r'type="(?:hidden|submit)?" name="(.+?)"\s* value="?(.+?)">', html)
-            for name, value in r:
-                data[name] = value
-                
-            html = net.http_POST(url, data).content
+        data = {}
+        r = re.findall(r'type="(?:hidden|submit)?" name="(.+?)"\s* value="?(.+?)">', html)
+        for name, value in r:
+            data[name] = value
 
-            captcha = re.compile("left:(\d+)px;padding-top:\d+px;'>&#(.+?);<").findall(html)
-            result = sorted(captcha, key=lambda ltr: int(ltr[0]))
-            solution = ''.join(str(int(num[1])-48) for num in result)
+        html = http_post(url, data)
 
-            r = re.findall(r'type="hidden" name="(.+?)" value="(.+?)">', html)
-            for name, value in r:
-                data[name] = value
-                data.update({'code':solution})
-            
-            html = net.http_POST(url, data).content
-    
-            sPattern =  '<script type=(?:"|\')text/javascript(?:"|\')>(eval\('
-            sPattern += 'function\(p,a,c,k,e,d\)(?!.+player_ads.+).+np_vid.+?)'
-            sPattern += '\s+?</script>'
-            r = re.search(sPattern, html, re.DOTALL + re.IGNORECASE)
+        captcha = re.compile("left:(\d+)px;padding-top:\d+px;'>&#(.+?);<").findall(html)
+        result = sorted(captcha, key=lambda ltr: int(ltr[0]))
+        solution = ''.join(str(int(num[1]) - 48) for num in result)
+
+        r = re.findall(r'type="hidden" name="(.+?)" value="(.+?)">', html)
+        for name, value in r:
+            data[name] = value
+            data.update({'code': solution})
+
+        html = http_post(url, data)
+
+        sPattern = '<script type=(?:"|\')text/javascript(?:"|\')>(eval\('
+        sPattern += 'function\(p,a,c,k,e,d\)(?!.+player_ads.+).+np_vid.+?)'
+        sPattern += '\s+?</script>'
+        r = re.search(sPattern, html, re.DOTALL + re.IGNORECASE)
+        if r:
+            sJavascript = r.group(1)
+            sUnpacked = jsunpack.unpack(sJavascript)
+            sPattern = '<embed id="np_vid"type="video/divx"src="(.+?)'
+            sPattern += '"custommode='
+            r = re.search(sPattern, sUnpacked)
             if r:
-                sJavascript = r.group(1)
-                sUnpacked = jsunpack.unpack(sJavascript)
-                sPattern  = '<embed id="np_vid"type="video/divx"src="(.+?)'
-                sPattern += '"custommode='
-                r = re.search(sPattern, sUnpacked)
-                if r:
-                    dialog.update(100)
-                    dialog.close()
-                    return r.group(1)
+                return r.group(1)
 
-            else:
-                    num = re.compile('donevideo\|(.+?)\|http').findall(html)
-                    pre = 'http://'+num[0]+'.donevideo.com:182/d/'
-                    preb = re.compile('image\|(.+?)\|video\|(.+?)\|').findall(html)
-                    for ext, link in preb:
-                        r = pre+link+'/video.'+ext
-                        dialog.update(100)
-                        dialog.close()
-                        return r
+        else:
+            num = re.compile('donevideo\|(.+?)\|http').findall(html)
+            pre = 'http://' + num[0] + '.donevideo.com:182/d/'
+            preb = re.compile('image\|(.+?)\|video\|(.+?)\|').findall(html)
+            for ext, link in preb:
+                r = pre + link + '/video.' + ext
+                return r
 
-        except Exception, e:
-            common.addon.log('**** Donevideo Error occured: %s' % e)
-            common.addon.show_small_popup('Error', str(e), 5000, '')
-            return False
-            
-        
+
     def get_url(self, host, media_id):
-        return 'http://www.donevideo.com/%s' % media_id 
-        
+        return 'http://www.donevideo.com/%s' % media_id
+
 
     def get_host_and_id(self, url):
-        r = re.search('//(.+?)/([0-9a-zA-Z]+)',url)
+        r = re.search('//(.+?)/([0-9a-zA-Z]+)', url)
         if r:
             return r.groups()
         else:
             return False
-        return('host', 'media_id')
 
 
     def valid_url(self, url, host):
         if self.get_setting('enabled') == 'false': return False
         return (re.match('http://(www.)?donevideo.com/' +
                          '[0-9A-Za-z]+', url) or
-                         'donevideo' in host)
+                'donevideo' in host)

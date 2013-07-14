@@ -1,3 +1,5 @@
+#!/usr/bin/python2.7
+# -*- coding: utf-8 -*-
 """
     urlresolver XBMC Addon
     Copyright (C) 2011 t0mm0
@@ -16,7 +18,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-import os    
+import os
 from t0mm0.common.addon import Addon
 import xbmc
 import xbmcaddon
